@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Message xmlns="urn:message"
+         xmlns:meta="urn:message:meta">
+    <Greeting vocal="optional">Hello</Greeting>
+    <meta:Greetee>World</meta:Greetee>
+    <meta:Excited>true</meta:Excited>
+</Message>
