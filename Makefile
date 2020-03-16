@@ -34,7 +34,7 @@ CLEAN_LIST := $(TARGET) \
 			  $(DISTCLEAN_LIST)
 
 # default rule
-default: all
+default: build
 
 # non-phony targets
 $(TARGET): $(OBJ)
@@ -53,8 +53,12 @@ $(BIN_PATH) $(OBJ_PATH):
 	mkdir $@
 
 # phony rules
-.PHONY: all
-all: $(BIN_PATH) $(OBJ_PATH) $(TARGET)
+.PHONY: install
+install: build
+	cp $(TARGET) /usr/local/bin/.
+
+.PHONY: build
+build: $(BIN_PATH) $(OBJ_PATH) $(TARGET)
 
 .PHONY: debug
 debug: $(TARGET_DEBUG)
