@@ -5,8 +5,18 @@
 #include "xml_to_yml.h"
 
 char *tab_buffer = "                                  ";
-bool useXpath = false;
+bool asXpath = false;
+bool asJson = false;
 char *xpathDelim = "/";
+char *lineEnd = "";
+
+struct XpathEntry {
+    char *xpath;
+    char *value;
+};
+
+struct XpathEntry *map[500];
+int xpathIdx = 0;
 
 int main(int argc, char **argv)
 {
@@ -16,7 +26,7 @@ int main(int argc, char **argv)
 
     if (argc == 2) {
         // default
-        useXpath = false;
+        asXpath = false;
         xml_to_yml(argv[1]);
     } else {
         // parse options
@@ -35,10 +45,15 @@ int main(int argc, char **argv)
             switch (argv[i][1])
             {
                 case 'y':
-                    useXpath = false;
+                    asXpath = false;
                     break;
                 case 'Y':
-                    useXpath = true;
+                    asXpath = true;
+                    break;
+                case 'j':
+                    asXpath = true;
+                    asJson = true;
+                    lineEnd = ",";
                     break;
                 default:
                     fprintf(stderr, "Unrecognised option \"%s\"\n\n", option);
@@ -72,12 +87,21 @@ void xml_to_yml(char *filename)
     strcat(xpath, (char *)root->name);
     strcat(xpath, xpathDelim);
 
-    if (false == useXpath) {
+    if (true == asJson) {
+        fprintf(stdout, "{\n");
+    }
+
+    if (false == asXpath) {
         fprintf(stdout, "%s:\n", root->name);
     }
 
     print_attributes(root, xpath, 1);
     print_children(root, xpath, 1);
+
+    if (true == asJson) {
+        // hacky workaround as we we print direct to console...
+        fprintf(stdout, "\"\":\"\"\n}\n");
+    }
 
     xmlFreeDoc(document);
 }
@@ -97,24 +121,25 @@ void print_children(xmlNode *root, char *xpath, int depth)
         } else if (xmlNodeIsText(node)) {
             content = node->content;
             if (content != NULL) {
-                if (true == useXpath) {
-                    fprintf(stdout, "\"%s\": \"%s\"\n", xpath, content);
+                add_map(xpath, (char *)content);
+                if (true == asXpath) {
+                    fprintf(stdout, "\"%s\": \"%s\"%s\n", xpath, content, lineEnd);
                 } else {
                     fprintf(stdout, "%.*s _text: \"%s\"\n", depth, tab_buffer, content);
                 }
             }
         } else {
             append_xpath(xpath, node);
-            if (true != useXpath) {
+            if (false == asXpath) {
                 fprintf(stdout, "%.*s %s:\n", depth, tab_buffer, node->name);
             }
         }
 
-        if (false == useXpath) {
+        if (false == asXpath) {
             print_attributes(node, xpath, depth + 1);
         }
         print_children(node, xpath, depth + 1);
-        if (true == useXpath) {
+        if (true == asXpath) {
             print_attributes(node, xpath, depth + 1);
         }
         reset_xpath(xpath, xpathParentLen);
@@ -135,7 +160,7 @@ void print_attributes(xmlNode *node, char *xpath, int depth)
 
     // if (ns) {
     //   char *href = (char *)ns->href;
-    //   if (true == useXpath) {
+    //   if (true == asXpath) {
     //       strcat(xpath, "@");
     //       strcat(xpath, "xmlns");
     //       fprintf(stdout, "\"%s\": \"%s\"\n", xpath, href);
@@ -149,22 +174,29 @@ void print_attributes(xmlNode *node, char *xpath, int depth)
         return;
     }
 
-    if (false == useXpath) {
+    if (false == asXpath) {
         fprintf(stdout, "%.*s _attrs:\n", depth, tab_buffer);
     }
 
     while (attr) {
         xmlChar* value = xmlNodeListGetString(node->doc, attr->children, 1);
         const xmlChar* name = attr->name;
-        if (true == useXpath) {
-            strcat(xpath, "@");
-            strcat(xpath, (char *)name);
-            fprintf(stdout, "\"%s\": \"%s\"\n", xpath, value);
-            reset_xpath(xpath, xpathParentLen);
+
+        strcat(xpath, "@");
+        strcat(xpath, (char *)name);
+
+        add_map(xpath, (char *)value);
+
+        if (true == asXpath) {
+            fprintf(stdout, "\"%s\": \"%s\"%s\n", xpath, value, lineEnd);
         } else {
-            fprintf(stdout, "%.*s %s: \"%s\"\n", depth + 1, tab_buffer, name, value);
+            fprintf(stdout, "%.*s %s: \"%s\"%s\n", depth + 1, tab_buffer, name, value, lineEnd);
         }
+
+        reset_xpath(xpath, xpathParentLen);
+
         xmlFree(value);
+
         attr = attr->next;
     }
 
@@ -180,4 +212,14 @@ void append_xpath(char *xpath, xmlNode *node) {
 void reset_xpath(char *xpath, long len) {
     xpath[len] = 0;
     // fprintf(stdout, "DEBUG XPATH: %s\n", xpath);
+}
+
+void add_map(char *key, char *value) {
+    struct XpathEntry entry;
+    entry.xpath = key;
+    entry.value = value;
+    
+    map[xpathIdx] = &entry;
+    
+    xpathIdx++;
 }

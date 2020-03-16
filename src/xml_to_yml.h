@@ -13,4 +13,6 @@ void append_xpath(char *xpath, xmlNode *node);
 
 void reset_xpath(char *xpath, long len);
 
+void add_map(char *key, char *value);
+
 #endif
