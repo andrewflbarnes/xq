@@ -15,7 +15,7 @@ struct XpathEntry {
     char *value;
 };
 
-struct XpathEntry *map[500];
+struct XpathEntry map[500];
 int xpathIdx = 0;
 
 int main(int argc, char **argv)
@@ -87,10 +87,6 @@ void xml_to_yml(char *filename)
     strcat(xpath, (char *)root->name);
     strcat(xpath, xpathDelim);
 
-    if (true == asJson) {
-        fprintf(stdout, "{\n");
-    }
-
     if (false == asXpath) {
         fprintf(stdout, "%s:\n", root->name);
     }
@@ -98,12 +94,24 @@ void xml_to_yml(char *filename)
     print_attributes(root, xpath, 1);
     print_children(root, xpath, 1);
 
-    if (true == asJson) {
-        // hacky workaround as we we print direct to console...
-        fprintf(stdout, "\"\":\"\"\n}\n");
-    }
-
     xmlFreeDoc(document);
+
+    // output
+    if (true == asXpath || true == asJson) {
+        if (true == asJson) {
+            fprintf(stdout, "{\n");
+        }
+
+        for (int i = 0; i < xpathIdx - 1; i++) {
+            fprintf(stdout, "\"%s\": \"%s\"%s\n", map[i].xpath, map[i].value, lineEnd);
+        }
+        
+        fprintf(stdout, "\"%s\": \"%s\"\n", map[xpathIdx - 1].xpath, map[xpathIdx - 1].value);
+
+        if (true == asJson) {
+            fprintf(stdout, "}\n");
+        }
+    }
 }
 
 void print_children(xmlNode *root, char *xpath, int depth)
@@ -122,9 +130,7 @@ void print_children(xmlNode *root, char *xpath, int depth)
             content = node->content;
             if (content != NULL) {
                 add_map(xpath, (char *)content);
-                if (true == asXpath) {
-                    fprintf(stdout, "\"%s\": \"%s\"%s\n", xpath, content, lineEnd);
-                } else {
+                if (false == asXpath) {
                     fprintf(stdout, "%.*s _text: \"%s\"\n", depth, tab_buffer, content);
                 }
             }
@@ -187,9 +193,7 @@ void print_attributes(xmlNode *node, char *xpath, int depth)
 
         add_map(xpath, (char *)value);
 
-        if (true == asXpath) {
-            fprintf(stdout, "\"%s\": \"%s\"%s\n", xpath, value, lineEnd);
-        } else {
+        if (false == asXpath) {
             fprintf(stdout, "%.*s %s: \"%s\"%s\n", depth + 1, tab_buffer, name, value, lineEnd);
         }
 
@@ -206,20 +210,26 @@ void print_attributes(xmlNode *node, char *xpath, int depth)
 void append_xpath(char *xpath, xmlNode *node) {
     strcat(xpath, (char *)node->name);
     strcat(xpath, xpathDelim);
-    // fprintf(stdout, "DEBUG XPATH: %s\n", xpath);
 }
 
 void reset_xpath(char *xpath, long len) {
     xpath[len] = 0;
-    // fprintf(stdout, "DEBUG XPATH: %s\n", xpath);
 }
 
-void add_map(char *key, char *value) {
+void add_map(char *xpath, char *value) {
+
+    char *xpathCopy;
+    xpathCopy = malloc(sizeof(char) * (strlen(xpath) + 1));
+    strcpy(xpathCopy, xpath);
+    char *valueCopy;
+    valueCopy = malloc(sizeof(char) * (strlen(value) + 1));
+    strcpy(valueCopy, value);
+
     struct XpathEntry entry;
-    entry.xpath = key;
-    entry.value = value;
+    entry.xpath = xpathCopy;
+    entry.value = valueCopy;
     
-    map[xpathIdx] = &entry;
+    map[xpathIdx] = entry;
     
     xpathIdx++;
 }
